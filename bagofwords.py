@@ -1,97 +1,124 @@
 #code borrowed from: https://www.oreilly.com/library/view/feature-engineering-for/9781491953235/ch04.html
 import pandas as pd
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, KFold
+from sklearn.utils import shuffle
 from sklearn.feature_extraction import text
 from sklearn import preprocessing
 from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier
 from sklearn import metrics
+from sklearn.svm import SVC
 
-#current problems: there are less bad questions than good ones, so the model is unbalanced. need to balance the model.
+bestModel = "" 
+bestModelScore = 0
 
 dfOG = pd.read_csv('train.csv', usecols=['question_text', 'target'])
-df = dfOG[:len(dfOG)//2] 
-df2 = dfOG[len(dfOG)//2:] #This is to split in half so we have two completely separate tests to test with
+bad = dfOG[dfOG.target == 1]
+df = dfOG[:int(len(dfOG)*.8)] 
+dfUnbalanced = dfOG[int(len(dfOG)*.8):] #This is to split in different parts so we have two completely separate tests to test unbalanced vs balanced accuracy
 goodQ = df[df.target == 0]
 badQ = df[df.target == 1]
 goodQ2 = goodQ.sample(len(badQ))
 
-betterTrainingSet = pd.concat([badQ, goodQ2])
-betterTrainingSet = betterTrainingSet.fillna(' ')
+betterTrainingSet = shuffle(pd.concat([badQ, goodQ2]))
 
-training_data_base, test_data_base = train_test_split(df2, train_size=0.7, random_state=123)
+training_data_base, test_data_base = train_test_split(dfUnbalanced, train_size=0.7)
 
-#Base Model
-bagOfWords = text.CountVectorizer()
-xTrainUnbalanced = bagOfWords.fit_transform(training_data_base['question_text'])
-xTestUnbalanced = bagOfWords.transform(test_data_base['question_text'])
+bagOfWords = text.CountVectorizer(ngram_range=(1, 2))
 
-yTrainUnbalanced = training_data_base['target']
-yTestUnbalanced = test_data_base['target']
+xTestUnbalanced = bagOfWords.fit_transform(dfUnbalanced['question_text'])
+yTestUnbalanced = dfUnbalanced['target']
 
+#Dummy Classifier
+dummyTrain, dummyTest = train_test_split(dfOG, train_size=0.7)
+xDummy = bagOfWords.transform(dummyTrain['question_text'])
+yDummy = dummyTrain['target']
+dummy = DummyClassifier(strategy='most_frequent')
+dummy.fit(xDummy, yDummy)
 
-#clf = DummyClassifier(strategy='most_frequent', random_state=0)
-#clf.fit(xTrainUnbalanced, yTrainUnbalanced)
-#print("base model", clf.score(xTestUnbalanced, yTestUnbalanced))
-'''
-#Logistic Regression Model
-training_data, test_data = train_test_split(
-    betterTrainingSet, train_size=0.7, random_state=123)
+score = dummy.score(xTestUnbalanced, yTestUnbalanced)
+predict = dummy.predict(xTestUnbalanced)
+balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
+
+print("Dummy Classifier: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+    metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "dummy"
+
+#Pure Logistic Regression Model
+training_data = betterTrainingSet
 xTrain = bagOfWords.transform(training_data['question_text'])
-xTest = bagOfWords.transform(test_data['question_text'])
-
 yTrain = training_data['target']
-yTest = test_data['target']
 
 model = LogisticRegression().fit(xTrain, yTrain)
-score1 = model.score(xTestUnbalanced, yTestUnbalanced)
-score = model.score(xTest, yTest)
+score = model.score(xTestUnbalanced, yTestUnbalanced)
 predict = model.predict(xTestUnbalanced)
+balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-print("Pure Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+print("Pure Logistic Regression: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
     metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
-'''
-#TF-IDF Model
-#tfidf_trfm = text.TfidfTransformer(norm=None)
-#xTrainTfidf = tfidf_trfm.fit_transform(xTrain)
-#xTestTfidf = tfidf_trfm.transform(xTest)
 
-#tfidfModel = LogisticRegression().fit(xTrainTfidf, yTrain)
-#score = tfidfModel.score(xTestTfidf, yTest)
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "Pure Logistic Regression"
 
-#print("TF-IDF", score)
+#Balanced Logistic Regression
+trainUnbalanced, testUnbalanced = train_test_split(
+    dfOG, train_size=0.8)
 
-#Logistic Regression-Balanced
-'''
-balancedModel = LogisticRegression(class_weight='balanced').fit(xTrainUnbalanced, yTrainUnbalanced)
-score1 = balancedModel.score(xTestUnbalanced, yTestUnbalanced)
+xTrain = bagOfWords.transform(trainUnbalanced['question_text'])
+xTest = bagOfWords.transform(testUnbalanced['question_text'])
+
+yTrain = trainUnbalanced['target']
+yTest = testUnbalanced['target']
+
+balancedModel = LogisticRegression(class_weight='balanced').fit(
+    xTrain, yTrain)
 score = balancedModel.score(xTest, yTest)
-predict = balancedModel.predict(xTestUnbalanced)
+predict = balancedModel.predict(xTest)
+balancedScore = metrics.balanced_accuracy_score(yTest, predict)
 
-print("Balanced: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:", metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))  
-'''
-'''
-sss = StratifiedShuffleSplit(n_splits=5, test_size=0.7)
-for train_index, test_index in sss.split(df['question_text'], df['target']):
-    xTrain, xTest = df['question_text'][train_index], df['question_text'][test_index]
-    yTrain, yTest = df['target'][train_index], df['target'][test_index]
+print("Balanced: score:", score, "f1:", metrics.f1_score(yTest, predict), "precision:", metrics.precision_score(yTest, predict), "recall:", metrics.recall_score(
+    yTest, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTest, predict))
 
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "Balanced Logistic Regression"
+
+#KFold Logistic Regression Model
+kfold = KFold(10, True, 1)
+
+X = betterTrainingSet['question_text']
+Y = betterTrainingSet['target']
+
+for trainIndex, testIndex in kfold.split(X):
+    xTrain, xTest = X.iloc[trainIndex], X.iloc[testIndex]
+    yTrain, yTest = Y.iloc[trainIndex], Y.iloc[testIndex]
     xTrain = bagOfWords.transform(xTrain)
     xTest = bagOfWords.transform(xTest)
-    model = LogisticRegression(class_weight='balanced').fit(xTrain, yTrain)
+
+    model = LogisticRegression().fit(xTrain, yTrain)
     score1 = model.score(xTestUnbalanced, yTestUnbalanced)
     score = model.score(xTest, yTest)
     predict = model.predict(xTestUnbalanced)
+    balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-    print("Pure Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
-        metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
-'''
+    print("K-Fold Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+          metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+    
+    if bestModelScore < balancedScore:
+        bestModelScore = balancedScore
+        bestModel = "KFold Logistic Regression"
 
-sss = StratifiedShuffleSplit(n_splits=4, test_size=0.7)
-for train_index, test_index in sss.split(betterTrainingSet['question_text'], betterTrainingSet['target']):
-    xTrain, xTest = betterTrainingSet['question_text'].iloc[
-        train_index], betterTrainingSet['question_text'].iloc[test_index]
-    yTrain, yTest = betterTrainingSet['target'].iloc[train_index], betterTrainingSet['target'].iloc[test_index]
+#Stratified Shuffle Split
+sss = StratifiedShuffleSplit(n_splits=5, test_size=0.7)
+X = betterTrainingSet['question_text']
+Y = betterTrainingSet['target']
+for train_index, test_index in sss.split(X, Y):
+    xTrain, xTest = X.iloc[train_index], X.iloc[test_index]
+    yTrain, yTest = Y.iloc[train_index], Y.iloc[test_index]
 
     xTrain = bagOfWords.transform(xTrain)
     xTest = bagOfWords.transform(xTest)
@@ -99,9 +126,60 @@ for train_index, test_index in sss.split(betterTrainingSet['question_text'], bet
     score1 = model.score(xTestUnbalanced, yTestUnbalanced)
     score = model.score(xTest, yTest)
     predict = model.predict(xTestUnbalanced)
+    balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-    print("Pure Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
-          metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+    print("Stratified Shuffle Split: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+          metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+    
+    if bestModelScore < balancedScore:
+        bestModelScore = balancedScore
+        bestModel = "Stratified Shuffle Split Logistic Regression"
+
+#SVM
+training_data, test_data = train_test_split(
+    betterTrainingSet, train_size=0.1)
+xTrain = bagOfWords.transform(training_data['question_text'])
+xTest = bagOfWords.transform(test_data['question_text'])
+yTrain = training_data['target']
+yTest = test_data['target']
+
+svclassifier = SVC(kernel='linear')
+svclassifier.fit(xTrain, yTrain)
+
+score = svclassifier.score(xTest, yTest)
+score1 = svclassifier.score(xTestUnbalanced, yTestUnbalanced)
+predict = svclassifier.predict(xTestUnbalanced)
+balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
+
+print("SVM: Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+      metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "SVM"
+
+
+#TF-IDF Logistic Regression Model
+tfidf_trfm = text.TfidfTransformer(norm=None)
+xTrain = bagOfWords.transform(betterTrainingSet['question_text'])
+yTrain = betterTrainingSet['target']
+xTrainTfidf = tfidf_trfm.fit_transform(xTrain)
+xTestTfidf = tfidf_trfm.transform(xTestUnbalanced)
+
+tfidfModel = LogisticRegression().fit(xTrainTfidf, yTrain)
+score = tfidfModel.score(xTestTfidf, yTestUnbalanced)
+predict = tfidfModel.predict(xTestTfidf)
+balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
+
+print("TF-IDF: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:", metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(
+    yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "TF-IDF"
+
+print("best model:", bestModel, "best model score:", bestModelScore)
+
 
 #testdf = pd.read_csv('test.csv', usecols=['question_text'])
 #xTestOfficial = bagOfWords.transform(testdf['question_text'])
