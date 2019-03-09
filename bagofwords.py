@@ -1,6 +1,6 @@
 #code borrowed from: https://www.oreilly.com/library/view/feature-engineering-for/9781491953235/ch04.html
 import pandas as pd
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, KFold
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, KFold, GridSearchCV
 from sklearn.utils import shuffle
 from sklearn.feature_extraction import text
 from sklearn import preprocessing
@@ -8,6 +8,9 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.dummy import DummyClassifier
 from sklearn import metrics
 from sklearn.svm import SVC
+import numpy as np
+
+#SGD text
 
 bestModel = "" 
 bestModelScore = 0
@@ -40,7 +43,7 @@ score = dummy.score(xTestUnbalanced, yTestUnbalanced)
 predict = dummy.predict(xTestUnbalanced)
 balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-print("Dummy Classifier: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+print("Dummy Classifier: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"), "precision:",
     metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
 
 if bestModelScore < balancedScore:
@@ -57,7 +60,7 @@ score = model.score(xTestUnbalanced, yTestUnbalanced)
 predict = model.predict(xTestUnbalanced)
 balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-print("Pure Logistic Regression: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+print("Pure Logistic Regression: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"),  "precision:",
     metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
 
 if bestModelScore < balancedScore:
@@ -80,7 +83,7 @@ score = balancedModel.score(xTest, yTest)
 predict = balancedModel.predict(xTest)
 balancedScore = metrics.balanced_accuracy_score(yTest, predict)
 
-print("Balanced: score:", score, "f1:", metrics.f1_score(yTest, predict), "precision:", metrics.precision_score(yTest, predict), "recall:", metrics.recall_score(
+print("Balanced: score:", score, "f1:", metrics.f1_score(yTest, predict), "f1 macro:", metrics.f1_score(yTest, predict, average="macro"), "f1 micro:", metrics.f1_score(yTest, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTest, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTest, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTest, predict, pos_label=1, average="binary"), "precision:", metrics.precision_score(yTest, predict), "recall:", metrics.recall_score(
     yTest, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTest, predict))
 
 if bestModelScore < balancedScore:
@@ -105,7 +108,7 @@ for trainIndex, testIndex in kfold.split(X):
     predict = model.predict(xTestUnbalanced)
     balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-    print("K-Fold Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+    print("K-Fold Logistic Regression: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"),  "precision:",
           metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
     
     if bestModelScore < balancedScore:
@@ -128,7 +131,7 @@ for train_index, test_index in sss.split(X, Y):
     predict = model.predict(xTestUnbalanced)
     balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-    print("Stratified Shuffle Split: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+    print("Stratified Shuffle Split: Unbalanced Test:", score1, "Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"), "precision:",
           metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
     
     if bestModelScore < balancedScore:
@@ -151,7 +154,7 @@ score1 = svclassifier.score(xTestUnbalanced, yTestUnbalanced)
 predict = svclassifier.predict(xTestUnbalanced)
 balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-print("SVM: Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:",
+print("SVM: Balanced Test:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"), "precision:",
       metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
 
 if bestModelScore < balancedScore:
@@ -171,7 +174,7 @@ score = tfidfModel.score(xTestTfidf, yTestUnbalanced)
 predict = tfidfModel.predict(xTestTfidf)
 balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
 
-print("TF-IDF: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "precision:", metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(
+print("TF-IDF: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"), "precision:", metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(
     yTestUnbalanced, predict), "balanced score:", balancedScore, "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
 
 if bestModelScore < balancedScore:
