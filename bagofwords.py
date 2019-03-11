@@ -4,13 +4,11 @@ from sklearn.model_selection import train_test_split, StratifiedShuffleSplit, KF
 from sklearn.utils import shuffle
 from sklearn.feature_extraction import text
 from sklearn import preprocessing
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.dummy import DummyClassifier
 from sklearn import metrics
 from sklearn.svm import SVC
 import numpy as np
-
-#SGD text
 
 bestModel = "" 
 bestModelScore = 0
@@ -31,6 +29,23 @@ bagOfWords = text.CountVectorizer(ngram_range=(1, 2))
 
 xTestUnbalanced = bagOfWords.fit_transform(dfUnbalanced['question_text'])
 yTestUnbalanced = dfUnbalanced['target']
+
+#SGD
+training_data = betterTrainingSet
+xTrain = bagOfWords.transform(training_data['question_text'])
+yTrain = training_data['target']
+
+model = SGDClassifier().fit(xTrain, yTrain)
+score = model.score(xTestUnbalanced, yTestUnbalanced)
+predict = model.predict(xTestUnbalanced)
+balancedScore = metrics.balanced_accuracy_score(yTestUnbalanced, predict)
+
+print("SGD: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict), "f1 macro:", metrics.f1_score(yTestUnbalanced, predict, average="macro"), "f1 micro:", metrics.f1_score(yTestUnbalanced, predict, average="micro"), "f1 weighted:", metrics.f1_score(yTestUnbalanced, predict, average="weighted"), "f1 pos:", metrics.f1_score(yTestUnbalanced, predict, pos_label=0, average="binary"), "f1 neg:", metrics.f1_score(yTestUnbalanced, predict, pos_label=1, average="binary"),  "precision:",
+      metrics.precision_score(yTestUnbalanced, predict), "recall:", metrics.recall_score(yTestUnbalanced, predict), "balanced score:", metrics.balanced_accuracy_score(yTestUnbalanced, predict), "confusion matrix:", metrics.confusion_matrix(yTestUnbalanced, predict))
+
+if bestModelScore < balancedScore:
+    bestModelScore = balancedScore
+    bestModel = "Pure Logistic Regression"
 
 #Dummy Classifier
 dummyTrain, dummyTest = train_test_split(dfOG, train_size=0.7)
@@ -180,6 +195,7 @@ print("TF-IDF: score:", score, "f1:", metrics.f1_score(yTestUnbalanced, predict)
 if bestModelScore < balancedScore:
     bestModelScore = balancedScore
     bestModel = "TF-IDF"
+
 
 print("best model:", bestModel, "best model score:", bestModelScore)
 
